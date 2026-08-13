@@ -28,82 +28,71 @@
 </div>
 {% else %}
 
-<div style="display:grid;grid-template-columns:minmax(230px,1fr) minmax(300px,1.35fr) minmax(300px,1fr);gap:1.1rem"
-     class="chart-cols">
-
-  <!-- ---------- who ---------- -->
-  <div class="panel">
-    <h2>Matchup</h2>
-
-    <div class="field">
-      <label for="pitcher">Pitcher</label>
-      <select id="pitcher">
-        {% for p in pitchers %}
-        <option value="{{ p.id }}" data-throws="{{ p.throws }}">{{ p.name }}</option>
-        {% endfor %}
-      </select>
-    </div>
-
-    <div class="field">
-      <label>Throws</label>
-      <div class="chips compact" id="throws">
-        <div class="chip on" data-value="R">R</div>
-        <div class="chip" data-value="L">L</div>
-      </div>
-    </div>
-
-    <div class="field">
-      <label for="batter">Batter <span style="color:var(--faint)">(optional for bullpens)</span></label>
-      <select id="batter">
-        <option value="">— none —</option>
-        {% for b in batters %}
-        <option value="{{ b.id }}" data-bats="{{ b.bats }}">{{ b.name }}</option>
-        {% endfor %}
-      </select>
-    </div>
-
-    <div class="field">
-      <label>Bats</label>
-      <div class="chips compact" id="bats">
-        <div class="chip on" data-value="R">R</div>
-        <div class="chip" data-value="L">L</div>
-        <div class="chip" data-value="S">S</div>
-      </div>
-    </div>
-
-    <hr style="border:none;border-top:1px solid var(--line);margin:1rem 0"/>
-
-    <div class="field">
-      <label>Count <span style="color:var(--faint)">— advances itself</span></label>
-      <div class="row">
-        <div>
-          <div class="chips compact" id="balls">
-            {% for n in range(4) %}
-            <div class="chip {{ 'on' if n == 0 }}" data-value="{{ n }}">{{ n }}</div>
-            {% endfor %}
-          </div>
-          <div style="font-size:.64rem;color:var(--faint);margin-top:.3rem;letter-spacing:.08em">BALLS</div>
-        </div>
-        <div>
-          <div class="chips compact" id="strikes">
-            {% for n in range(3) %}
-            <div class="chip {{ 'on' if n == 0 }}" data-value="{{ n }}">{{ n }}</div>
-            {% endfor %}
-          </div>
-          <div style="font-size:.64rem;color:var(--faint);margin-top:.3rem;letter-spacing:.08em">STRIKES</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="field">
-      <label for="charter">Charter name</label>
-      <input type="text" id="charter" value="{{ session_meta.charter_name or '' }}"/>
+<!-- ============ matchup: changes rarely, stays out of the way ============ -->
+<div class="panel setup-bar">
+  <div>
+    <label for="pitcher">Pitcher</label>
+    <select id="pitcher">
+      {% for p in pitchers %}
+      <option value="{{ p.id }}" data-throws="{{ p.throws }}">{{ p.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label>Throws</label>
+    <div class="chips compact" id="throws">
+      <div class="chip on" data-value="R">R</div>
+      <div class="chip" data-value="L">L</div>
     </div>
   </div>
+  <div>
+    <label for="batter">Batter <span style="color:var(--faint)">(optional)</span></label>
+    <select id="batter">
+      <option value="">— none —</option>
+      {% for b in batters %}
+      <option value="{{ b.id }}" data-bats="{{ b.bats }}">{{ b.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label>Bats</label>
+    <div class="chips compact" id="bats">
+      <div class="chip on" data-value="R">R</div>
+      <div class="chip" data-value="L">L</div>
+      <div class="chip" data-value="S">S</div>
+    </div>
+  </div>
+  <div>
+    <label for="charter">Charter</label>
+    <input type="text" id="charter" value="{{ session_meta.charter_name or '' }}"/>
+  </div>
+</div>
 
-  <!-- ---------- the pitch ---------- -->
-  <div class="panel">
+<!-- ============ the per-pitch loop: type → velo → result → zone → submit ============ -->
+<div class="chart-cols">
+
+  <div class="panel pitch-panel">
     <h2>Pitch</h2>
+
+    <div class="field">
+      <label>Type</label>
+      <div class="chips" id="pitch_type">
+        {% for t in pitch_types %}
+        <div class="chip {{ 'on' if loop.first }}" data-value="{{ t }}">
+          <i class="tdot" style="background:var(--t-{{ t|lower }})"></i>{{ t }}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="velo">Velocity <span style="color:var(--faint)">mph — remembers each pitch type</span></label>
+      <div class="velo-stepper">
+        <button type="button" id="veloDown" aria-label="minus one">−</button>
+        <input type="number" id="velo" inputmode="numeric" min="20" max="110" step="1" value="70"/>
+        <button type="button" id="veloUp" aria-label="plus one">+</button>
+      </div>
+    </div>
 
     <div class="field">
       <label>Result</label>
@@ -114,21 +103,7 @@
       </div>
     </div>
 
-    <div class="field">
-      <label>Type</label>
-      <div class="chips" id="pitch_type">
-        {% for t in pitch_types %}
-        <div class="chip {{ 'on' if loop.first }}" data-value="{{ t }}">{{ t }}</div>
-        {% endfor %}
-      </div>
-    </div>
-
-    <div class="field">
-      <label for="velo">Velocity <span style="color:var(--faint)">mph</span></label>
-      <input type="number" id="velo" inputmode="numeric" min="20" max="110" step="1" value="70"/>
-    </div>
-
-    <!-- everything below only matters once the ball is in play -->
+    <!-- contact detail, only when the ball is in play -->
     <div id="bipBlock" style="display:none">
       <hr style="border:none;border-top:1px solid var(--line);margin:1rem 0"/>
 
@@ -184,9 +159,30 @@
     </div>
   </div>
 
-  <!-- ---------- location + log ---------- -->
-  <div class="panel">
-    <h2>Attack Zone</h2>
+  <div class="panel zone-panel">
+    <!-- count scoreboard: advances itself, tap the chips to correct it -->
+    <div class="count-board">
+      <div class="count-side">
+        <div class="cnum" id="cbBalls">0</div>
+        <div class="clabel">Balls</div>
+        <div class="chips compact" id="balls" style="justify-content:center">
+          {% for n in range(4) %}
+          <div class="chip {{ 'on' if n == 0 }}" data-value="{{ n }}">{{ n }}</div>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="count-dash">–</div>
+      <div class="count-side">
+        <div class="cnum" id="cbStrikes">0</div>
+        <div class="clabel">Strikes</div>
+        <div class="chips compact" id="strikes" style="justify-content:center">
+          {% for n in range(3) %}
+          <div class="chip {{ 'on' if n == 0 }}" data-value="{{ n }}">{{ n }}</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
     <div class="zone-wrap">
       <div class="zone-grid" id="zoneGrid"></div>
       <div class="plate"></div>
@@ -201,31 +197,43 @@
       </div>
     </div>
 
-    <button id="submitPitch" class="btn-solid" style="width:100%;margin-top:1.1rem;padding:.85rem">
-      Submit Pitch
-    </button>
-    <div style="font-size:.68rem;color:var(--faint);text-align:center;margin-top:.5rem;letter-spacing:.05em">
-      Enter submits · Backspace undoes the last pitch
+    <div class="submit-row">
+      <button id="submitPitch" class="btn-solid">Submit Pitch</button>
+      <button id="undoPitch" type="button">Undo</button>
     </div>
-
-    <hr style="border:none;border-top:1px solid var(--line);margin:1.1rem 0"/>
-
-    <h2>This session</h2>
-    <div class="scroll-x" style="max-height:340px;overflow-y:auto">
-      <table>
-        <thead><tr>
-          <th>Pitcher</th><th>Type</th><th class="num">Velo</th>
-          <th>Result</th><th class="num">Zone</th><th></th>
-        </tr></thead>
-        <tbody id="pitchLog"><tr><td colspan="6" class="empty">Nothing yet.</td></tr></tbody>
-      </table>
-    </div>
+    <div class="submit-hint">Enter submits · Backspace undoes the last pitch</div>
   </div>
 
+<!-- ============ the tape: sits under the pitch panel on desktop ============ -->
+<div class="panel log-panel">
+  <h2>This session</h2>
+  <div class="scroll-x" style="max-height:360px;overflow-y:auto">
+    <table>
+      <thead><tr>
+        <th>Pitcher</th><th>Type</th><th class="num">Velo</th>
+        <th>Result</th><th class="num">Zone</th><th></th>
+      </tr></thead>
+      <tbody id="pitchLog"><tr><td colspan="6" class="empty">Nothing yet.</td></tr></tbody>
+    </table>
+  </div>
 </div>
 
+</div><!-- /.chart-cols -->
+
 <style>
-@media(max-width:1100px){.chart-cols{grid-template-columns:1fr !important}}
+/* The log rides under the pitch panel so the zone column's height is never
+   wasted; on narrow screens everything stacks in charting order. */
+.chart-cols{
+  display:grid;gap:1.1rem;align-items:start;
+  grid-template-columns:1fr 1.15fr;
+  grid-template-areas:"pitch zone" "log zone";
+}
+.pitch-panel{grid-area:pitch;margin-bottom:0}
+.zone-panel{grid-area:zone;margin-bottom:0}
+.log-panel{grid-area:log;margin-bottom:0}
+@media(max-width:1100px){
+  .chart-cols{grid-template-columns:1fr;grid-template-areas:"pitch" "zone" "log"}
+}
 </style>
 {% endif %}
 {% endblock %}

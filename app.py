@@ -33,7 +33,7 @@ app.permanent_session_lifetime = timedelta(days=30)
 HUB_PASSWORD = os.environ.get("HUB_PASSWORD", "Held_2027")
 
 PUBLIC_PATHS = {"/login", "/healthz", "/moeller-logo.png", "/shield.png",
-                "/favicon.ico", "/manifest.json"}
+                "/bg-field.jpg", "/favicon.ico", "/manifest.json"}
 
 
 @app.before_request
@@ -86,6 +86,11 @@ def logo():
 @app.route("/shield.png")
 def shield():
     return send_from_directory(APP_DIR, "shield.png")
+
+
+@app.route("/bg-field.jpg")
+def bg_field():
+    return send_from_directory(APP_DIR, "bg-field.jpg")
 
 
 @app.route("/favicon.ico")

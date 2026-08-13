@@ -1,4 +1,4 @@
-/* The charting screen: zone grid, count auto-advance, submit, undo. */
+/* The charting screen: zone grid, count auto-advance, velo memory, submit, undo. */
 
 /* Statcast attack zones laid onto a 9x9 grid.
    Heart is the middle 3x3; each ring is eight rectangles around it, which is why
@@ -24,9 +24,35 @@ const ZONE_LAYOUT = [
 
 const BAND_LABEL = { heart: 'Heart', shadow: 'Shadow', chase: 'Chase', waste: 'Waste' };
 
+/* sensible first-guess velo per type; overridden as soon as one is charted */
+const VELO_DEFAULT = { Fastball: 84, Sinker: 82, Curveball: 71, Slider: 77,
+                       Changeup: 75, Splitter: 79 };
+
 let selectedZone = null;
 let lastPitchId = null;
 
+/* ---- per pitcher+type velocity memory, kept across reloads ---- */
+const VELO_KEY = 'moeller_velo_memory';
+let veloMemory = {};
+try { veloMemory = JSON.parse(localStorage.getItem(VELO_KEY) || '{}'); } catch (e) {}
+
+function veloFor(pitcherId, type) {
+  return veloMemory[pitcherId + '|' + type] ?? VELO_DEFAULT[type] ?? 70;
+}
+
+function rememberVelo(pitcherId, type, velo) {
+  if (velo === null || velo === '') return;
+  veloMemory[pitcherId + '|' + type] = Number(velo);
+  try { localStorage.setItem(VELO_KEY, JSON.stringify(veloMemory)); } catch (e) {}
+}
+
+function prefillVelo() {
+  const pid = document.getElementById('pitcher').value;
+  const type = chipValue('pitch_type');
+  document.getElementById('velo').value = veloFor(pid, type);
+}
+
+/* ---- zone grid ---- */
 function buildZoneGrid() {
   const grid = document.getElementById('zoneGrid');
   if (!grid) return;
@@ -58,6 +84,12 @@ function clearZone() {
   document.getElementById('zoneBand').textContent = '';
 }
 
+/* ---- count ---- */
+function updateCountBoard() {
+  document.getElementById('cbBalls').textContent = chipValue('balls') || 0;
+  document.getElementById('cbStrikes').textContent = chipValue('strikes') || 0;
+}
+
 /* Ball in play reveals the contact fields; anything else hides them.
    A 3-2 count or two strikes can end the PA without contact, so the
    walk/strikeout block appears when the count makes that possible. */
@@ -85,6 +117,7 @@ function advanceCount(result, paResult) {
   if (paOver) {
     setChip('balls', 0);
     setChip('strikes', 0);
+    updateCountBoard();
     return true;
   }
 
@@ -97,6 +130,7 @@ function advanceCount(result, paResult) {
   }
   setChip('balls', balls);
   setChip('strikes', strikes);
+  updateCountBoard();
   return false;
 }
 
@@ -135,6 +169,14 @@ function collectPitch() {
   };
 }
 
+function flashSubmit() {
+  const btn = document.getElementById('submitPitch');
+  const old = btn.textContent;
+  btn.classList.add('ok');
+  btn.textContent = '✓ Logged';
+  setTimeout(() => { btn.classList.remove('ok'); btn.textContent = old; }, 650);
+}
+
 async function submitPitch() {
   const btn = document.getElementById('submitPitch');
   const pitch = collectPitch();
@@ -153,6 +195,8 @@ async function submitPitch() {
     lastPitchId = res.id;
     document.getElementById('pitchCount').textContent = res.session_total;
 
+    rememberVelo(pitch.pitcher_id, pitch.pitch_type, pitch.pitch_velocity);
+
     const paOver = advanceCount(pitch.pitch_result, paResult);
     clearZone();
     // Contact detail is per-pitch; never let it bleed into the next one.
@@ -163,7 +207,8 @@ async function submitPitch() {
     setChip('pa_result', 'None');
     syncConditionalBlocks();
 
-    toast(paOver ? 'Logged — new batter' : 'Logged');
+    flashSubmit();
+    if (paOver) toast('New batter — count reset');
     await loadLog();
   } catch (err) {
     toast(err.message, true);
@@ -184,6 +229,14 @@ async function undoLast() {
   }
 }
 
+/* result → dot colour class in the tape */
+function resultClass(result) {
+  if (result === 'Ball') return 'res-ball';
+  if (result === 'Foul') return 'res-foul';
+  if (result === 'Ball in Play') return 'res-bip';
+  return 'res-strike';
+}
+
 async function loadLog() {
   const tbody = document.getElementById('pitchLog');
   try {
@@ -199,7 +252,7 @@ async function loadLog() {
         <td>${escapeHtml(r.pitcher)}</td>
         <td>${escapeHtml(r.pitch_type)}</td>
         <td class="num">${r.pitch_velocity ?? ''}</td>
-        <td>${escapeHtml(r.pitch_result)}${
+        <td><i class="rdot ${resultClass(r.pitch_result)}"></i>${escapeHtml(r.pitch_result)}${
           r.play_result && r.play_result !== 'None'
             ? ' <span style="color:var(--gold)">· ' + escapeHtml(r.play_result) + '</span>'
             : ''}</td>
@@ -222,6 +275,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   buildZoneGrid();
   loadLog();
+  prefillVelo();
+  updateCountBoard();
 
   // Handedness follows the selected player, but stays overridable.
   const pitcherSel = document.getElementById('pitcher');
@@ -234,16 +289,30 @@ document.addEventListener('DOMContentLoaded', () => {
     const opt = batterSel.selectedOptions[0];
     if (opt && opt.dataset.bats) setChip('bats', opt.dataset.bats);
   };
-  pitcherSel.addEventListener('change', syncThrows);
+  pitcherSel.addEventListener('change', () => { syncThrows(); prefillVelo(); });
   batterSel.addEventListener('change', syncBats);
   syncThrows();
 
+  document.getElementById('pitch_type').addEventListener('chipchange', prefillVelo);
+
   ['pitch_result', 'balls', 'strikes'].forEach(id => {
-    document.getElementById(id).addEventListener('chipchange', syncConditionalBlocks);
+    document.getElementById(id).addEventListener('chipchange', () => {
+      updateCountBoard();
+      syncConditionalBlocks();
+    });
   });
   syncConditionalBlocks();
 
+  // velocity stepper
+  const velo = document.getElementById('velo');
+  const nudge = d => {
+    velo.value = Math.max(20, Math.min(110, (Number(velo.value) || 70) + d));
+  };
+  document.getElementById('veloUp').addEventListener('click', () => nudge(1));
+  document.getElementById('veloDown').addEventListener('click', () => nudge(-1));
+
   document.getElementById('submitPitch').addEventListener('click', submitPitch);
+  document.getElementById('undoPitch').addEventListener('click', undoLast);
 
   document.getElementById('pitchLog').addEventListener('click', async e => {
     const btn = e.target.closest('.del-pitch');
