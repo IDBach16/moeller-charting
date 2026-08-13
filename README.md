@@ -21,14 +21,37 @@ one the hub uses.
 python smoke_test.py              # 43 checks against a throwaway database
 ```
 
-## Deploy to Railway
+## Railway
 
-1. New project → deploy from this repo.
-2. **Add the Postgres plugin.** It sets `DATABASE_URL` automatically, which is all the
-   app needs — tables are created on first boot.
-3. Set `HUB_PASSWORD` and `SECRET_KEY` in the service variables.
-4. Copy the generated URL into `Moeller_Hub/app.py` (the Charting App card's `href`) and
-   delete that card's `<div class="badge">Coming Soon</div>` line.
+Live at **https://moeller-charting-production.up.railway.app** — project `moeller-charting`,
+services `moeller-charting` + `Postgres`.
+
+Variables on the app service: `DATABASE_URL` (a reference to `${{Postgres.DATABASE_URL}}`),
+`HUB_PASSWORD`, `SECRET_KEY`. Tables are created on first boot.
+
+### Redeploying
+
+The service is **not** linked to GitHub — Railway's GitHub app doesn't have access to the
+repo, so pushing to `main` does *not* redeploy. Deploy from this directory:
+
+```
+railway up --service moeller-charting
+```
+
+To get push-to-deploy instead, install the Railway GitHub app for `IDBach16/moeller-charting`
+(Railway dashboard → service → Settings → Source), then pushes to `main` deploy on their own.
+
+### From scratch
+
+```
+railway init --name moeller-charting
+railway add --database postgres
+railway add --service moeller-charting \
+  --variables "HUB_PASSWORD=..." --variables "SECRET_KEY=..." \
+  --variables 'DATABASE_URL=${{Postgres.DATABASE_URL}}'
+railway up --service moeller-charting
+railway domain --service moeller-charting
+```
 
 **Do not swap Postgres for a SQLite file.** Railway's filesystem is ephemeral; a redeploy
 mid-session would take the bullpen with it. That is why this app does not follow
