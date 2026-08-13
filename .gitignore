@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+charting.db
+*.db-shm
+*.db-wal
+.venv/
+*.bak
+*.tmp

@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% set active = 'roster' %}
+{% block title %}Roster — Moeller Charting{% endblock %}
+
+{% block content %}
+<h1>Roster</h1>
+<p class="sub">Names come from here, so charted pitches always spell them the same way.</p>
+
+<div class="grid2">
+  <div class="panel">
+    <h2>Add a player</h2>
+    <form id="addPlayer">
+      <div class="row">
+        <div class="field">
+          <label for="first">First</label>
+          <input type="text" id="first" required/>
+        </div>
+        <div class="field">
+          <label for="last">Last</label>
+          <input type="text" id="last" required/>
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label for="class_year">Class</label>
+          <input type="text" id="class_year" placeholder="2028"/>
+        </div>
+        <div class="field">
+          <label for="throws">Throws</label>
+          <select id="throws"><option>R</option><option>L</option></select>
+        </div>
+        <div class="field">
+          <label for="bats">Bats</label>
+          <select id="bats"><option>R</option><option>L</option><option>S</option></select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Pitcher?</label>
+        <div class="chips compact" id="is_pitcher">
+          <div class="chip on" data-value="0">Position player</div>
+          <div class="chip" data-value="1">Pitcher</div>
+        </div>
+      </div>
+      <button type="submit" class="btn-solid">Add Player</button>
+    </form>
+    <p class="sub" style="margin:.9rem 0 0">
+      Only players marked <b>Pitcher</b> appear in the pitcher dropdown. Everyone
+      appears as a batter.
+    </p>
+  </div>
+
+  <div class="panel">
+    <h2>Players</h2>
+    <div class="scroll-x">
+      <table>
+        <thead><tr>
+          <th>Name</th><th>Class</th><th>T</th><th>B</th><th>Role</th><th></th>
+        </tr></thead>
+        <tbody id="playerList"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/roster.js"></script>
+{% endblock %}

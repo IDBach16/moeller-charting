@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% set active = 'dashboard' %}
+{% block title %}Dashboard — Moeller Charting{% endblock %}
+{% block main_class %}wide{% endblock %}
+
+{% block content %}
+<h1>Coach Dashboard</h1>
+<p class="sub">Everything charted, filtered three ways.</p>
+
+<!-- filters: one row, above the charts -->
+<div class="panel filters">
+  <div>
+    <label for="f_type">Session type</label>
+    <select id="f_type">
+      <option value="all">All types</option>
+      {% for value, label in session_types %}
+      <option value="{{ value }}">{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label for="f_since">Since</label>
+    <input type="date" id="f_since"/>
+  </div>
+  <div>
+    <label for="f_pitcher">Pitcher</label>
+    <select id="f_pitcher"><option value="">All pitchers</option></select>
+  </div>
+  <div style="display:flex;align-items:flex-end">
+    <button id="f_clear" class="btn-sm">Clear</button>
+  </div>
+</div>
+
+<div class="stat-row" id="totals" style="margin-bottom:1.1rem"></div>
+
+<div class="panel">
+  <h2>By pitcher</h2>
+  <div class="scroll-x">
+    <table>
+      <thead><tr>
+        <th>Pitcher</th>
+        <th class="num">Pitches</th>
+        <th class="num">Strike%</th>
+        <th class="num">1st-Pitch K%</th>
+        <th class="num">Whiff%</th>
+        <th class="num">In-Zone%</th>
+        <th class="num">Heart%</th>
+        <th class="num">Chase%</th>
+        <th class="num">Hard%</th>
+        <th class="num">Avg Velo</th>
+        <th class="num">Max Velo</th>
+      </tr></thead>
+      <tbody id="pitcherTable"><tr><td colspan="11" class="empty">Loading…</td></tr></tbody>
+    </table>
+  </div>
+  <p class="sub" style="margin:.8rem 0 0;font-size:.72rem">
+    Strike% counts called strikes, swinging strikes, fouls and balls in play.
+    Whiff% is swinging strikes over swings. In-Zone% is heart + shadow as a share of
+    located pitches. Hard% is barrels and sweet-spot contact over balls in play.
+  </p>
+</div>
+
+<div class="grid2">
+  <div class="panel">
+    <h2>Location — pitches by attack zone</h2>
+    <div class="zone-wrap">
+      <div class="zone-grid heat" id="heatGrid"></div>
+      <div class="plate"></div>
+      <div class="heat-scale">
+        <i class="zero" title="none thrown"></i>
+        <span class="muted-label">fewer</span>
+        <i style="background:#625440"></i><i style="background:#847049"></i>
+        <i style="background:#a68c52"></i><i style="background:#c5a55a"></i>
+        <i style="background:#dec78e"></i>
+        <span class="muted-label">more</span>
+      </div>
+      <div class="zone-readout" id="heatTotal"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Pitch mix</h2>
+    <div id="mixLegend" class="mix-legend"></div>
+    <div id="mixChart"></div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Velocity by pitch type</h2>
+  <div class="scroll-x">
+    <table>
+      <thead><tr>
+        <th>Pitcher</th><th>Pitch</th><th class="num">Count</th>
+        <th class="num">Usage%</th><th class="num">Avg</th><th class="num">Max</th>
+      </tr></thead>
+      <tbody id="veloTable"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<style>
+.filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.9rem;align-items:end}
+.muted-label{font-size:.66rem;color:var(--faint);letter-spacing:.08em;text-transform:uppercase}
+.heat-scale{display:flex;align-items:center;gap:.22rem}
+.heat-scale i{width:26px;height:11px;border-radius:2px;display:inline-block}
+.heat-scale i.zero{background:transparent;box-shadow:inset 0 0 0 1px rgba(197,165,90,.16);
+  margin-right:.35rem}
+.heat-scale .muted-label:first-child{margin-right:.3rem}
+.heat-scale .muted-label:last-child{margin-left:.3rem}
+.zone-grid.heat .zone{cursor:default}
+.zone-grid.heat .zone:hover{filter:brightness(1.3)}
+
+/* stacked mix bars: 2px surface gap between segments, per the mark spec */
+.mix-row{margin-bottom:.85rem}
+.mix-head{display:flex;justify-content:space-between;font-size:.78rem;margin-bottom:.28rem}
+.mix-head b{font-weight:700}
+.mix-head span{color:var(--muted);font-variant-numeric:tabular-nums}
+.mix-bar{display:flex;gap:2px;height:22px;border-radius:4px;overflow:hidden;background:var(--navy-deep)}
+.mix-seg{position:relative;display:flex;align-items:center;justify-content:center;
+  font-size:.64rem;font-weight:700;color:rgba(10,10,20,.85);min-width:0}
+.mix-seg:first-child{border-radius:4px 0 0 4px}
+.mix-seg:last-child{border-radius:0 4px 4px 0}
+.mix-legend{display:flex;flex-wrap:wrap;gap:.7rem;margin-bottom:.9rem}
+.mix-legend span{display:flex;align-items:center;gap:.32rem;font-size:.72rem;color:var(--muted)}
+.mix-legend i{width:11px;height:11px;border-radius:3px}
+
+/* one tooltip element, moved around */
+.viz-tip{position:fixed;pointer-events:none;z-index:300;background:#0b0b14;
+  border:1px solid var(--line);border-radius:7px;padding:.42rem .6rem;font-size:.75rem;
+  color:var(--white);white-space:nowrap;opacity:0;transition:opacity .12s;
+  box-shadow:0 6px 22px rgba(0,0,0,.5)}
+.viz-tip.show{opacity:1}
+.viz-tip b{color:var(--gold)}
+</style>
+<div class="viz-tip" id="vizTip"></div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/dashboard.js"></script>
+{% endblock %}

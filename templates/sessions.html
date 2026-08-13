@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% set active = 'sessions' %}
+{% block title %}Sessions — Moeller Charting{% endblock %}
+
+{% block content %}
+<h1>Charting Sessions</h1>
+<p class="sub">Every pitch belongs to a session, so two bullpens on the same day stay separate.</p>
+
+<div class="grid2">
+
+  <div class="panel">
+    <h2>Start a session</h2>
+    <form id="newSession">
+      <div class="row">
+        <div class="field">
+          <label for="s_date">Date</label>
+          <input type="date" id="s_date" value="{{ today }}" required/>
+        </div>
+        <div class="field">
+          <label for="s_charter">Charter</label>
+          <input type="text" id="s_charter" placeholder="Who's charting"/>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Type</label>
+        <div class="chips" id="s_type">
+          {% for value, label in session_types %}
+          <div class="chip {{ 'on' if loop.first }}" data-value="{{ value }}">{{ label }}</div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="s_catcher">Catcher <span style="color:var(--faint)">(optional)</span></label>
+        <select id="s_catcher">
+          <option value="">—</option>
+          {% for c in catchers %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="s_notes">Notes</label>
+        <input type="text" id="s_notes" placeholder="Focus, script, conditions…"/>
+      </div>
+
+      <button type="submit" class="btn-solid">Start Charting</button>
+    </form>
+    {% if not catchers %}
+    <p class="sub" style="margin:.9rem 0 0">
+      No players yet — add the roster on the <a href="/roster">Roster</a> page first.
+    </p>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <h2>Recent</h2>
+    {% if sessions %}
+      {% for s in sessions %}
+      <div class="list-item">
+        <div class="list-main">
+          <div class="list-title">
+            {{ s.session_date }}
+            <span class="tag tag-{{ s.session_type }}">{{ s.session_type.replace('_',' ') }}</span>
+          </div>
+          <div class="list-sub">
+            {{ s.pitch_count }} pitch{{ '' if s.pitch_count == 1 else 'es' }}
+            {%- if s.charter_name %} · {{ s.charter_name }}{% endif %}
+            {%- if s.notes %} · {{ s.notes }}{% endif %}
+          </div>
+        </div>
+        <div style="display:flex;gap:.4rem;flex-shrink:0">
+          <a class="btn btn-sm" href="/session/{{ s.id }}">Chart</a>
+          <a class="btn btn-sm" href="/export/session/{{ s.id }}.csv">CSV</a>
+          <button class="btn-sm btn-danger del-session" data-id="{{ s.id }}"
+                  data-count="{{ s.pitch_count }}">×</button>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty">No sessions yet. Start one on the left.</div>
+    {% endif %}
+  </div>
+
+</div>
+
+<div class="panel">
+  <h2>Export</h2>
+  <p class="sub" style="margin-bottom:.8rem">
+    Every pitch ever charted, in the same column order as the Clark State export.
+  </p>
+  <a class="btn" href="/export.csv">Download all as CSV</a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/sessions.js"></script>
+{% endblock %}

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>{% block title %}Moeller Charting{% endblock %}</title>
+<link rel="icon" href="/moeller-logo.png"/>
+<link rel="apple-touch-icon" href="/moeller-logo.png"/>
+<link rel="manifest" href="/manifest.json"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="theme-color" content="#1a1a2e"/>
+<link rel="stylesheet" href="/static/css/app.css"/>
+</head>
+<body>
+
+<header class="topbar">
+  <a class="brand" href="/">
+    <img src="/shield.png" alt=""/>
+    <span>Moeller Charting</span>
+  </a>
+  <nav>
+    <a href="/" class="{{ 'on' if active == 'sessions' }}">Sessions</a>
+    <a href="/dashboard" class="{{ 'on' if active == 'dashboard' }}">Dashboard</a>
+    <a href="/roster" class="{{ 'on' if active == 'roster' }}">Roster</a>
+    <a href="/logout" class="quiet">Sign out</a>
+  </nav>
+</header>
+
+<main class="{% block main_class %}wrap{% endblock %}">
+{% block content %}{% endblock %}
+</main>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="/static/js/common.js"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

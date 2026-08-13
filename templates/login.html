@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Moeller Charting — Sign in</title>
+<link rel="icon" href="/moeller-logo.png"/>
+<link rel="stylesheet" href="/static/css/app.css"/>
+</head>
+<body class="login-page">
+<form class="login-card" method="POST" action="/login">
+  <img src="/shield.png" alt="Moeller shield"/>
+  <h1>Moeller Charting</h1>
+  <p>Coaches Access</p>
+  {% if error %}<div class="err">{{ error }}</div>{% endif %}
+  <input type="password" name="password" placeholder="Password" autofocus required
+         autocomplete="current-password"/>
+  <button type="submit">Enter</button>
+</form>
+</body>
+</html>
