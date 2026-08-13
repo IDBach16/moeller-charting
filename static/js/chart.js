@@ -1,4 +1,4 @@
-/* The charting screen: zone grid, count auto-advance, velo memory, submit, undo. */
+/* The charting screen: zone grid, count auto-advance, velo memory, quick log. */
 
 /* Statcast attack zones laid onto a 9x9 grid.
    Heart is the middle 3x3; each ring is eight rectangles around it, which is why
@@ -28,8 +28,19 @@ const BAND_LABEL = { heart: 'Heart', shadow: 'Shadow', chase: 'Chase', waste: 'W
 const VELO_DEFAULT = { Fastball: 84, Sinker: 82, Curveball: 71, Slider: 77,
                        Changeup: 75, Splitter: 79 };
 
+/* the original Moeller Bullpen app's defaults for contact readings */
+const EV_DEFAULT = 80;
+const LA_DEFAULT = 0;
+
 let selectedZone = null;
 let lastPitchId = null;
+let submitting = false;
+
+/* ---- quick log: tapping a zone submits the pitch. The zone is the last thing
+   a charter learns about a pitch, so making it the trigger removes the trip
+   across the screen to the submit button -- the fix for "couldn't keep up". ---- */
+const QUICK_KEY = 'moeller_quick_log';
+let quickMode = localStorage.getItem(QUICK_KEY) !== 'off';   // default ON
 
 /* ---- per pitcher+type velocity memory, kept across reloads ---- */
 const VELO_KEY = 'moeller_velo_memory';
@@ -63,7 +74,10 @@ function buildZoneGrid() {
     cell.textContent = num;
     cell.dataset.zone = num;
     cell.dataset.band = band;
-    cell.addEventListener('click', () => selectZone(num, band));
+    cell.addEventListener('click', () => {
+      selectZone(num, band);
+      if (quickMode) submitPitch();
+    });
     grid.appendChild(cell);
   });
 }
@@ -164,6 +178,8 @@ function collectPitch() {
     bip_position: inPlay ? chipValue('bip_position') : 'None',
     exit_velocity: inPlay ? chipValue('exit_velocity') : 'None',
     hit_type: inPlay ? chipValue('hit_type') : 'None',
+    exit_velo_mph: inPlay ? (document.getElementById('exit_velo_mph').value || null) : null,
+    launch_angle: inPlay ? (document.getElementById('launch_angle').value || null) : null,
     charter_name: document.getElementById('charter').value,
     _paResult: paResult,
   };
@@ -178,6 +194,7 @@ function flashSubmit() {
 }
 
 async function submitPitch() {
+  if (submitting) return;
   const btn = document.getElementById('submitPitch');
   const pitch = collectPitch();
 
@@ -187,6 +204,7 @@ async function submitPitch() {
   const paResult = pitch._paResult;
   delete pitch._paResult;
 
+  submitting = true;
   btn.disabled = true;
   try {
     const res = await api('/api/sessions/' + window.SESSION_ID + '/pitches', {
@@ -205,6 +223,8 @@ async function submitPitch() {
     setChip('exit_velocity', 'None');
     setChip('hit_type', 'None');
     setChip('pa_result', 'None');
+    document.getElementById('exit_velo_mph').value = EV_DEFAULT;
+    document.getElementById('launch_angle').value = LA_DEFAULT;
     syncConditionalBlocks();
 
     flashSubmit();
@@ -213,6 +233,7 @@ async function submitPitch() {
   } catch (err) {
     toast(err.message, true);
   } finally {
+    submitting = false;
     btn.disabled = false;
   }
 }
@@ -243,7 +264,7 @@ async function loadLog() {
     const rows = await api('/api/sessions/' + window.SESSION_ID + '/pitches');
     document.getElementById('pitchCount').textContent = rows.length;
     if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="6" class="empty">Nothing yet.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" class="empty">Nothing yet.</td></tr>';
       return;
     }
     if (rows.length) lastPitchId = rows[0].id;
@@ -256,11 +277,12 @@ async function loadLog() {
           r.play_result && r.play_result !== 'None'
             ? ' <span style="color:var(--gold)">· ' + escapeHtml(r.play_result) + '</span>'
             : ''}</td>
+        <td class="num">${r.exit_velo_mph ?? ''}</td>
         <td class="num">${r.attack_zone ?? ''}</td>
         <td><button class="btn-sm btn-danger del-pitch" data-id="${r.id}">×</button></td>
       </tr>`).join('');
   } catch (err) {
-    tbody.innerHTML = '<tr><td colspan="6" class="empty">Could not load pitches.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">Could not load pitches.</td></tr>';
   }
 }
 
@@ -270,6 +292,15 @@ function escapeHtml(s) {
   }[c]));
 }
 
+function wireStepper(inputId, downId, upId, lo, hi, fallback) {
+  const input = document.getElementById(inputId);
+  const nudge = d => {
+    input.value = Math.max(lo, Math.min(hi, (Number(input.value) || fallback) + d));
+  };
+  document.getElementById(downId).addEventListener('click', () => nudge(-1));
+  document.getElementById(upId).addEventListener('click', () => nudge(1));
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   if (!document.getElementById('zoneGrid')) return;  // roster empty, form not rendered
 
@@ -277,6 +308,29 @@ document.addEventListener('DOMContentLoaded', () => {
   loadLog();
   prefillVelo();
   updateCountBoard();
+
+  // quick log toggle, remembered per device
+  const quick = document.getElementById('quickToggle');
+  const paintQuick = () => {
+    quick.classList.toggle('on', quickMode);
+    quick.setAttribute('aria-checked', quickMode ? 'true' : 'false');
+  };
+  paintQuick();
+  quick.addEventListener('click', () => {
+    quickMode = !quickMode;
+    localStorage.setItem(QUICK_KEY, quickMode ? 'on' : 'off');
+    paintQuick();
+    toast(quickMode ? 'Quick log on — tapping a zone submits'
+                    : 'Quick log off — use the Submit button');
+  });
+
+  // count corrections live behind the "fix" button
+  const countFix = document.getElementById('countFix');
+  document.getElementById('countEdit').addEventListener('click', e => {
+    const show = countFix.style.display === 'none';
+    countFix.style.display = show ? '' : 'none';
+    e.currentTarget.setAttribute('aria-expanded', show ? 'true' : 'false');
+  });
 
   // Handedness follows the selected player, but stays overridable.
   const pitcherSel = document.getElementById('pitcher');
@@ -303,13 +357,9 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   syncConditionalBlocks();
 
-  // velocity stepper
-  const velo = document.getElementById('velo');
-  const nudge = d => {
-    velo.value = Math.max(20, Math.min(110, (Number(velo.value) || 70) + d));
-  };
-  document.getElementById('veloUp').addEventListener('click', () => nudge(1));
-  document.getElementById('veloDown').addEventListener('click', () => nudge(-1));
+  wireStepper('velo', 'veloDown', 'veloUp', 20, 110, 70);
+  wireStepper('exit_velo_mph', 'evDown', 'evUp', 20, 130, EV_DEFAULT);
+  wireStepper('launch_angle', 'laDown', 'laUp', -90, 90, LA_DEFAULT);
 
   document.getElementById('submitPitch').addEventListener('click', submitPitch);
   document.getElementById('undoPitch').addEventListener('click', undoLast);

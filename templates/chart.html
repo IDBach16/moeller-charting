@@ -68,11 +68,10 @@
   </div>
 </div>
 
-<!-- ============ the per-pitch loop: type → velo → result → zone → submit ============ -->
+<!-- ============ ONE vertical flow: eyes and thumb never leave the column ============ -->
 <div class="chart-cols">
 
-  <div class="panel pitch-panel">
-    <h2>Pitch</h2>
+  <div class="panel flow-panel">
 
     <div class="field">
       <label>Type</label>
@@ -85,12 +84,31 @@
       </div>
     </div>
 
-    <div class="field">
-      <label for="velo">Velocity <span style="color:var(--faint)">mph — remembers each pitch type</span></label>
-      <div class="velo-stepper">
-        <button type="button" id="veloDown" aria-label="minus one">−</button>
-        <input type="number" id="velo" inputmode="numeric" min="20" max="110" step="1" value="70"/>
-        <button type="button" id="veloUp" aria-label="plus one">+</button>
+    <div class="flow-two">
+      <div class="field">
+        <label for="velo">Velo <span style="color:var(--faint)">mph</span></label>
+        <div class="velo-stepper">
+          <button type="button" id="veloDown" aria-label="minus one">−</button>
+          <input type="number" id="velo" inputmode="numeric" min="20" max="110" step="1" value="70"/>
+          <button type="button" id="veloUp" aria-label="plus one">+</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Count <span style="color:var(--faint)">auto</span></label>
+        <div class="count-inline">
+          <span class="cnum" id="cbBalls">0</span>
+          <span class="cdash">–</span>
+          <span class="cnum" id="cbStrikes">0</span>
+          <button type="button" class="btn-sm" id="countEdit" aria-expanded="false">fix</button>
+        </div>
+        <div class="count-fix" id="countFix" style="display:none">
+          <div class="chips compact" id="balls">
+            {% for n in range(4) %}<div class="chip {{ 'on' if n == 0 }}" data-value="{{ n }}">{{ n }}</div>{% endfor %}
+          </div>
+          <div class="chips compact" id="strikes">
+            {% for n in range(3) %}<div class="chip {{ 'on' if n == 0 }}" data-value="{{ n }}">{{ n }}</div>{% endfor %}
+          </div>
+        </div>
       </div>
     </div>
 
@@ -105,14 +123,31 @@
 
     <!-- contact detail, only when the ball is in play -->
     <div id="bipBlock" style="display:none">
-      <hr style="border:none;border-top:1px solid var(--line);margin:1rem 0"/>
-
       <div class="field">
         <label>Play Result</label>
         <div class="chips compact" id="play_result">
           {% for r in play_results %}
           <div class="chip {{ 'on' if loop.first }}" data-value="{{ r }}">{{ r }}</div>
           {% endfor %}
+        </div>
+      </div>
+
+      <div class="flow-two">
+        <div class="field">
+          <label for="exit_velo_mph">Exit Velo <span style="color:var(--faint)">mph</span></label>
+          <div class="velo-stepper">
+            <button type="button" id="evDown" aria-label="minus one">−</button>
+            <input type="number" id="exit_velo_mph" inputmode="numeric" min="20" max="130" step="1" value="80"/>
+            <button type="button" id="evUp" aria-label="plus one">+</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="launch_angle">Launch Angle <span style="color:var(--faint)">°</span></label>
+          <div class="velo-stepper">
+            <button type="button" id="laDown" aria-label="minus one">−</button>
+            <input type="number" id="launch_angle" inputmode="numeric" min="-90" max="90" step="1" value="0"/>
+            <button type="button" id="laUp" aria-label="plus one">+</button>
+          </div>
         </div>
       </div>
 
@@ -146,8 +181,7 @@
 
     <!-- a walk or strikeout can end a PA without contact -->
     <div id="paBlock" style="display:none">
-      <hr style="border:none;border-top:1px solid var(--line);margin:1rem 0"/>
-      <div class="field" style="margin-bottom:0">
+      <div class="field">
         <label>Plate Appearance Result</label>
         <div class="chips compact" id="pa_result">
           <div class="chip on" data-value="None">Still batting</div>
@@ -157,33 +191,8 @@
         </div>
       </div>
     </div>
-  </div>
 
-  <div class="panel zone-panel">
-    <!-- count scoreboard: advances itself, tap the chips to correct it -->
-    <div class="count-board">
-      <div class="count-side">
-        <div class="cnum" id="cbBalls">0</div>
-        <div class="clabel">Balls</div>
-        <div class="chips compact" id="balls" style="justify-content:center">
-          {% for n in range(4) %}
-          <div class="chip {{ 'on' if n == 0 }}" data-value="{{ n }}">{{ n }}</div>
-          {% endfor %}
-        </div>
-      </div>
-      <div class="count-dash">–</div>
-      <div class="count-side">
-        <div class="cnum" id="cbStrikes">0</div>
-        <div class="clabel">Strikes</div>
-        <div class="chips compact" id="strikes" style="justify-content:center">
-          {% for n in range(3) %}
-          <div class="chip {{ 'on' if n == 0 }}" data-value="{{ n }}">{{ n }}</div>
-          {% endfor %}
-        </div>
-      </div>
-    </div>
-
-    <div class="zone-wrap">
+    <div class="zone-wrap" style="margin-top:.3rem">
       <div class="zone-grid" id="zoneGrid"></div>
       <div class="plate"></div>
       <div class="zone-readout">
@@ -195,6 +204,9 @@
         <span><i style="background:var(--chase)"></i>21–29 Chase</span>
         <span><i style="background:var(--waste)"></i>31–39 Waste</span>
       </div>
+      <div class="chip quick-toggle" id="quickToggle" role="switch" aria-checked="true">
+        ⚡ Quick log — tapping a zone submits
+      </div>
     </div>
 
     <div class="submit-row">
@@ -204,35 +216,48 @@
     <div class="submit-hint">Enter submits · Backspace undoes the last pitch</div>
   </div>
 
-<!-- ============ the tape: sits under the pitch panel on desktop ============ -->
-<div class="panel log-panel">
-  <h2>This session</h2>
-  <div class="scroll-x" style="max-height:360px;overflow-y:auto">
-    <table>
-      <thead><tr>
-        <th>Pitcher</th><th>Type</th><th class="num">Velo</th>
-        <th>Result</th><th class="num">Zone</th><th></th>
-      </tr></thead>
-      <tbody id="pitchLog"><tr><td colspan="6" class="empty">Nothing yet.</td></tr></tbody>
-    </table>
+  <div class="panel log-panel">
+    <h2>This session</h2>
+    <div class="scroll-x log-scroll">
+      <table>
+        <thead><tr>
+          <th>Pitcher</th><th>Type</th><th class="num">Velo</th>
+          <th>Result</th><th class="num">EV</th><th class="num">Zone</th><th></th>
+        </tr></thead>
+        <tbody id="pitchLog"><tr><td colspan="7" class="empty">Nothing yet.</td></tr></tbody>
+      </table>
+    </div>
   </div>
-</div>
 
 </div><!-- /.chart-cols -->
 
 <style>
-/* The log rides under the pitch panel so the zone column's height is never
-   wasted; on narrow screens everything stacks in charting order. */
+/* One narrow action column: type → velo/count → result → (contact) → zone →
+   submit, top to bottom, nothing more than a hand-width away. The tape rides
+   alongside on wide screens and drops below on phones. */
 .chart-cols{
   display:grid;gap:1.1rem;align-items:start;
-  grid-template-columns:1fr 1.15fr;
-  grid-template-areas:"pitch zone" "log zone";
+  grid-template-columns:minmax(380px,560px) 1fr;
 }
-.pitch-panel{grid-area:pitch;margin-bottom:0}
-.zone-panel{grid-area:zone;margin-bottom:0}
-.log-panel{grid-area:log;margin-bottom:0}
-@media(max-width:1100px){
-  .chart-cols{grid-template-columns:1fr;grid-template-areas:"pitch" "zone" "log"}
+.flow-panel{margin-bottom:0}
+.log-panel{margin-bottom:0;position:sticky;top:4.2rem}
+.log-scroll{max-height:calc(100vh - 12rem);overflow-y:auto}
+.flow-two{display:grid;grid-template-columns:1fr 1fr;gap:.8rem}
+.count-inline{display:flex;align-items:center;gap:.55rem;min-height:44px}
+.count-inline .cnum{font-size:1.7rem;font-weight:900;line-height:1;
+  font-variant-numeric:tabular-nums;
+  background:linear-gradient(180deg,var(--white),var(--gold-light));
+  -webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;color:transparent}
+.count-inline .cdash{color:var(--faint);font-size:1.2rem}
+.count-inline #countEdit{margin-left:.3rem;color:var(--muted);border-color:var(--line)}
+.count-fix{display:flex;gap:.9rem;flex-wrap:wrap;margin-top:.5rem}
+.quick-toggle{margin-top:.2rem;font-size:.78rem}
+.quick-toggle:not(.on){opacity:.6}
+@media(max-width:1000px){
+  .chart-cols{grid-template-columns:1fr}
+  .log-panel{position:static}
+  .log-scroll{max-height:360px}
 }
 </style>
 {% endif %}

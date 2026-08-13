@@ -91,6 +91,10 @@ def main():
     check("4 balls rejected", post(balls=4).status_code == 400)
     check("3 strikes rejected", post(strikes=3).status_code == 400)
     check("missing pitcher rejected", post(pitcher_id=None).status_code == 400)
+    check("exit velo 200 rejected", post(exit_velo_mph=200).status_code == 400)
+    check("launch angle 120 rejected", post(launch_angle=120).status_code == 400)
+    check("EV 92 / LA -8 accepted",
+          post(exit_velo_mph=92, launch_angle=-8).status_code == 200)
     check("unknown session is 404",
           c.post("/api/sessions/99999/pitches", json=base).status_code == 404)
 
@@ -110,7 +114,8 @@ def main():
                    "batter_id": batter_id, "bats": "L"}
         if result == "Ball in Play":
             payload.update(play_result="Single", hit_type="Line Drive",
-                           exit_velocity="Barrel: Squared / Solid", bip_position="CF")
+                           exit_velocity="Barrel: Squared / Solid", bip_position="CF",
+                           exit_velo_mph=94, launch_angle=12)
         rv = c.post(f"/api/sessions/{s2}/pitches", json=payload)
         if rv.status_code != 200:
             check(f"script pitch {result}", False, rv.get_json())
@@ -151,12 +156,16 @@ def main():
     rv = c.get("/export.csv")
     body = rv.get_data(as_text=True)
     header = body.splitlines()[0].split(",")
-    clark = ["pitcher_team_name", "pitcher", "throws", "batter_team_name", "batter",
-             "bats", "pitch_result", "pitch_type", "pitch_velocity", "balls", "strikes",
-             "exit_velocity", "hit_type", "play_result", "bip_position", "charter_name",
-             "attack_zone", "Date"]
-    check("Clark's 18 columns lead the export", header[:18] == clark, header[:18])
+    # The original Moeller Bullpen app's 16 columns, in its exact order.
+    original = ["pitcher", "throws", "batter", "bats", "pitch_result", "pitch_type",
+                "pitch_velocity", "balls", "strikes", "exit_velocity", "launch_angle",
+                "play_result", "bip_position", "charter_name", "attack_zone", "Date"]
+    check("original's 16 columns lead the export", header[:16] == original, header[:16])
     check("export has rows", len(body.strip().splitlines()) > 7)
+    bip_row = next(line for line in body.splitlines()[1:] if ",Ball in Play," in line)
+    check("numeric EV lands in exit_velocity column",
+          bip_row.split(",")[9] == "94", bip_row.split(",")[9])
+    check("launch angle exported", bip_row.split(",")[10] == "12")
     rv2 = c.get(f"/export/session/{s2}.csv")
     check("per-session export is just that session",
           len(rv2.get_data(as_text=True).strip().splitlines()) == 8)

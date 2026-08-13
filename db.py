@@ -79,8 +79,11 @@ pitches = Table(
 
     Column("play_result", String(24)),
     Column("bip_position", String(4)),
-    Column("exit_velocity", String(40)),   # contact quality, Clark's naming kept
+    Column("exit_velocity", String(40)),   # contact-quality bucket (Clark's naming)
     Column("hit_type", String(16)),
+    # The original Moeller Bullpen app recorded these as numbers (defaults 80 / 0).
+    Column("exit_velo_mph", Integer),
+    Column("launch_angle", Integer),
 
     Column("charter_name", String(60)),
     Column("created_at", DateTime, server_default=func.now()),
@@ -144,6 +147,17 @@ def database_url():
     return url
 
 
+def _ensure_columns(engine):
+    """create_all() adds missing tables but never missing columns; the deployed
+    database predates exit_velo_mph / launch_angle, so add them by hand."""
+    from sqlalchemy import inspect, text
+    existing = {c["name"] for c in inspect(engine).get_columns("pitches")}
+    with engine.begin() as conn:
+        for name in ("exit_velo_mph", "launch_angle"):
+            if name not in existing:
+                conn.execute(text(f"ALTER TABLE pitches ADD COLUMN {name} INTEGER"))
+
+
 def get_engine():
     global _engine
     if _engine is None:
@@ -154,6 +168,7 @@ def get_engine():
             kwargs.update(pool_pre_ping=True, pool_recycle=280)
         _engine = create_engine(url, **kwargs)
         metadata.create_all(_engine)
+        _ensure_columns(_engine)
     return _engine
 
 

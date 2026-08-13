@@ -4,6 +4,26 @@ Recovered 2026-08-13 from the live Clark State app (`idbach16.shinyapps.io/Clark
 because the local source is an unreadable OneDrive stub. This file **is** the outline —
 the R source was never readable, so this is what we build from.
 
+## ⚠ The true predecessor is the ORIGINAL Moeller Bullpen app
+
+Found later the same day: `robertlfrey.shinyapps.io/MoellenBullpen` — actually at
+`https://robertlfrey.shinyapps.io/MoellerBullpen/` — is the app the Clark one was cloned
+from, and the one Moeller coaches actually used. Differences from Clark's, read from the
+live app:
+
+- **Exit Velocity is a NUMBER** (default 80) and there is a **Launch Angle** number
+  (default 0). No Hit Type, no contact-quality buckets, no team-name columns.
+- Play Result has no Sac Bunt / Bunt For Hit (those are Clark additions — kept here).
+- Export = 16 columns: `pitcher, throws, batter, bats, pitch_result, pitch_type,
+  pitch_velocity, balls, strikes, exit_velocity, launch_angle, play_result,
+  bip_position, charter_name, attack_zone, Date`. **Our export leads with exactly these,**
+  numeric EV in `exit_velocity`; hit_type / contact_quality / session columns appended.
+- Its Plots tab is broken (one pitcher dropdown, one metric "swing", errors on render).
+  The dashboard supersedes it.
+- **Ian's field report:** "users couldn't keep up because everything was going too fast
+  and too far across the screen." That drove the single-column flow layout and the
+  quick-log (zone-tap submits) mode.
+
 ## Origin
 
 `OneDrive\Desktop\Personal\Clark_State_app\Game_App.R` (33 KB) + `Game_App_DEV.R` (40 KB),

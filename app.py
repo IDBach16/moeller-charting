@@ -348,6 +348,26 @@ def _clean_pitch(d):
         v = d.get(name) or "None"
         return v if v in allowed else "None"
 
+    # Numeric contact readings, like the original Moeller Bullpen app recorded.
+    def reading(name, lo, hi):
+        v = d.get(name)
+        if v in ("", None):
+            return None, None
+        try:
+            v = int(round(float(v)))
+        except (TypeError, ValueError):
+            return None, f"{name} must be a number"
+        if not lo <= v <= hi:
+            return None, f"{name} looks wrong (expected {lo} to {hi})"
+        return v, None
+
+    ev, err = reading("exit_velo_mph", 20, 130)
+    if err:
+        return None, err
+    la, err = reading("launch_angle", -90, 90)
+    if err:
+        return None, err
+
     if not d.get("pitcher_id"):
         return None, "pitcher is required"
 
@@ -366,6 +386,8 @@ def _clean_pitch(d):
         "bip_position": one_of("bip_position", BIP_POSITIONS),
         "exit_velocity": one_of("exit_velocity", CONTACT_QUALITY),
         "hit_type": one_of("hit_type", HIT_TYPES),
+        "exit_velo_mph": ev,
+        "launch_angle": la,
         "charter_name": (d.get("charter_name") or "").strip() or None,
     }, None
 
@@ -387,6 +409,7 @@ def api_session_pitches(session_id):
         "band": zone_band(r.attack_zone), "balls": r.balls, "strikes": r.strikes,
         "play_result": r.play_result, "hit_type": r.hit_type,
         "exit_velocity": r.exit_velocity, "bip_position": r.bip_position,
+        "exit_velo_mph": r.exit_velo_mph, "launch_angle": r.launch_angle,
     } for r in rows])
 
 
@@ -433,7 +456,7 @@ def _summarise(rows):
             "pitcher": r.name, "pitches": 0, "strikes": 0, "swings": 0, "whiffs": 0,
             "in_zone": 0, "zoned": 0, "heart": 0, "chase": 0, "waste": 0,
             "first_pitch": 0, "first_pitch_strikes": 0, "bip": 0, "hard": 0,
-            "velos": [], "types": {},
+            "velos": [], "evs": [], "types": {},
         })
         p["pitches"] += 1
 
@@ -459,8 +482,13 @@ def _summarise(rows):
 
         if r.pitch_result == "Ball in Play":
             p["bip"] += 1
-            if r.exit_velocity and r.exit_velocity.startswith(("Barrel", "Sweet Spot")):
+            # Hard contact from either signal: the quality bucket, or a real
+            # exit-velo reading of 90+.
+            if ((r.exit_velocity and r.exit_velocity.startswith(("Barrel", "Sweet Spot")))
+                    or (r.exit_velo_mph is not None and r.exit_velo_mph >= 90)):
                 p["hard"] += 1
+            if r.exit_velo_mph is not None:
+                p["evs"].append(r.exit_velo_mph)
 
         if r.pitch_velocity:
             p["velos"].append(r.pitch_velocity)
@@ -473,6 +501,7 @@ def _summarise(rows):
     out = []
     for p in by_pitcher.values():
         velos = p.pop("velos")
+        evs = p.pop("evs")
         types = p.pop("types")
         out.append({
             "pitcher": p["pitcher"],
@@ -485,6 +514,7 @@ def _summarise(rows):
             "waste_pct": _rate(p["waste"], p["zoned"]),
             "fps_pct": _rate(p["first_pitch_strikes"], p["first_pitch"]),
             "hard_pct": _rate(p["hard"], p["bip"]),
+            "avg_ev": round(sum(evs) / len(evs), 1) if evs else None,
             "avg_velo": round(sum(velos) / len(velos), 1) if velos else None,
             "max_velo": max(velos) if velos else None,
             "mix": sorted(
@@ -546,11 +576,14 @@ def api_dashboard():
 # Export
 # ---------------------------------------------------------------------------
 
-# Clark's column order, so anything already written against that CSV still reads.
-EXPORT_COLUMNS = ["pitcher_team_name", "pitcher", "throws", "batter_team_name",
-                  "batter", "bats", "pitch_result", "pitch_type", "pitch_velocity",
-                  "balls", "strikes", "exit_velocity", "hit_type", "play_result",
-                  "bip_position", "charter_name", "attack_zone", "Date",
+# The original Moeller Bullpen app's 16 columns, in its exact order -- so anything
+# written against that CSV keeps working. exit_velocity is the NUMBER there (the
+# contact-quality bucket ships separately as contact_quality). Extras appended.
+EXPORT_COLUMNS = ["pitcher", "throws", "batter", "bats", "pitch_result",
+                  "pitch_type", "pitch_velocity", "balls", "strikes",
+                  "exit_velocity", "launch_angle", "play_result", "bip_position",
+                  "charter_name", "attack_zone", "Date",
+                  "hit_type", "contact_quality",
                   "session_id", "session_type", "attack_zone_band"]
 
 
@@ -573,10 +606,8 @@ def _export_rows(session_id=None):
 
     for r in rows:
         yield {
-            "pitcher_team_name": "Moeller",
             "pitcher": f"{r.p_first} {r.p_last}",
             "throws": r.throws,
-            "batter_team_name": "Moeller" if r.b_first else "",
             "batter": f"{r.b_first} {r.b_last}" if r.b_first else "",
             "bats": r.bats or "",
             "pitch_result": r.pitch_result,
@@ -584,13 +615,15 @@ def _export_rows(session_id=None):
             "pitch_velocity": r.pitch_velocity if r.pitch_velocity is not None else "",
             "balls": r.balls,
             "strikes": r.strikes,
-            "exit_velocity": r.exit_velocity,
-            "hit_type": r.hit_type,
+            "exit_velocity": r.exit_velo_mph if r.exit_velo_mph is not None else "",
+            "launch_angle": r.launch_angle if r.launch_angle is not None else "",
             "play_result": r.play_result,
             "bip_position": r.bip_position,
             "charter_name": r.charter_name or "",
             "attack_zone": r.attack_zone if r.attack_zone is not None else "",
             "Date": r.session_date,
+            "hit_type": r.hit_type,
+            "contact_quality": r.exit_velocity,
             "session_id": r.session_id,
             "session_type": r.session_type,
             "attack_zone_band": zone_band(r.attack_zone) or "",

@@ -155,7 +155,7 @@ function drawMix(pitchers) {
 function drawTables(pitchers) {
   const tbody = document.getElementById('pitcherTable');
   if (!pitchers.length) {
-    tbody.innerHTML = '<tr><td colspan="11" class="empty">Nothing charted yet.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="12" class="empty">Nothing charted yet.</td></tr>';
     document.getElementById('veloTable').innerHTML =
       '<tr><td colspan="6" class="empty">Nothing charted yet.</td></tr>';
     return;
@@ -171,6 +171,7 @@ function drawTables(pitchers) {
       <td class="num">${pct(p.heart_pct)}</td>
       <td class="num">${pct(p.chase_pct)}</td>
       <td class="num">${pct(p.hard_pct)}</td>
+      <td class="num">${fmt(p.avg_ev)}</td>
       <td class="num">${fmt(p.avg_velo)}</td>
       <td class="num">${fmt(p.max_velo)}</td>
     </tr>`).join('');
