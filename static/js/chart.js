@@ -60,7 +60,57 @@ function rememberVelo(pitcherId, type, velo) {
 function prefillVelo() {
   const pid = document.getElementById('pitcher').value;
   const type = chipValue('pitch_type');
-  document.getElementById('velo').value = veloFor(pid, type);
+  const v = veloFor(pid, type);
+  document.getElementById('velo').value = v;
+  stripCenter = v;
+  renderVeloStrip();
+}
+
+/* ---- one-tap velo strip ----
+   Steppers were too slow for student charters: prefill 84, gun says 79, five
+   taps while the next pitch is coming. The strip shows the numbers around the
+   remembered velo so the right one is one tap away, and it re-centres itself
+   as the memory updates. ---- */
+let stripCenter = null;
+
+function renderVeloStrip() {
+  const strip = document.getElementById('veloStrip');
+  if (!strip) return;
+  const input = document.getElementById('velo');
+  const cur = input.value === '' ? null : Number(input.value);
+  if (stripCenter === null) stripCenter = cur ?? 80;
+  stripCenter = Math.max(25, Math.min(105, stripCenter));
+
+  const chips = [{ t: '‹', act: 'left', label: 'show slower' }];
+  for (let v = stripCenter - 5; v <= stripCenter + 5; v++) {
+    chips.push({ t: String(v), act: 'set', v });
+  }
+  chips.push({ t: '›', act: 'right', label: 'show faster' });
+  chips.push({ t: 'n/a', act: 'na', label: 'no gun reading' });
+  chips.push({ t: '…', act: 'manual', label: 'type it' });
+
+  strip.innerHTML = '';
+  chips.forEach(c => {
+    const el = document.createElement('div');
+    el.className = 'chip vchip' + (c.act !== 'set' ? ' vaux' : '');
+    if ((c.act === 'set' && cur === c.v) || (c.act === 'na' && cur === null)) {
+      el.classList.add('on');
+    }
+    el.textContent = c.t;
+    if (c.label) el.title = c.label;
+    el.addEventListener('click', () => {
+      if (c.act === 'set') input.value = c.v;
+      else if (c.act === 'left') stripCenter -= 5;
+      else if (c.act === 'right') stripCenter += 5;
+      else if (c.act === 'na') input.value = '';
+      else if (c.act === 'manual') {
+        const m = document.getElementById('veloManual');
+        m.style.display = m.style.display === 'none' ? '' : 'none';
+      }
+      renderVeloStrip();
+    });
+    strip.appendChild(el);
+  });
 }
 
 /* ---- zone grid ---- */
@@ -360,6 +410,18 @@ document.addEventListener('DOMContentLoaded', () => {
   wireStepper('velo', 'veloDown', 'veloUp', 20, 110, 70);
   wireStepper('exit_velo_mph', 'evDown', 'evUp', 20, 130, EV_DEFAULT);
   wireStepper('launch_angle', 'laDown', 'laUp', -90, 90, LA_DEFAULT);
+
+  // Manual edits re-centre the strip so the two stay in step.
+  document.getElementById('velo').addEventListener('input', () => {
+    const v = Number(document.getElementById('velo').value);
+    if (v) stripCenter = v;
+    renderVeloStrip();
+  });
+  ['veloDown', 'veloUp'].forEach(id =>
+    document.getElementById(id).addEventListener('click', () => {
+      stripCenter = Number(document.getElementById('velo').value) || stripCenter;
+      renderVeloStrip();
+    }));
 
   document.getElementById('submitPitch').addEventListener('click', submitPitch);
   document.getElementById('undoPitch').addEventListener('click', undoLast);

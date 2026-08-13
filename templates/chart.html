@@ -84,30 +84,32 @@
       </div>
     </div>
 
-    <div class="flow-two">
-      <div class="field">
-        <label for="velo">Velo <span style="color:var(--faint)">mph</span></label>
-        <div class="velo-stepper">
-          <button type="button" id="veloDown" aria-label="minus one">−</button>
-          <input type="number" id="velo" inputmode="numeric" min="20" max="110" step="1" value="70"/>
-          <button type="button" id="veloUp" aria-label="plus one">+</button>
-        </div>
+    <div class="field">
+      <label for="velo">Velo <span style="color:var(--faint)">mph — tap the number, it follows each pitcher</span></label>
+      <!-- One tap. The strip centres on the remembered velo for this
+           pitcher + pitch type and re-centres itself as pitches are logged. -->
+      <div class="velo-strip" id="veloStrip"></div>
+      <div class="velo-stepper" id="veloManual" style="display:none;margin-top:.5rem">
+        <button type="button" id="veloDown" aria-label="minus one">−</button>
+        <input type="number" id="velo" inputmode="numeric" min="20" max="110" step="1" value="70"/>
+        <button type="button" id="veloUp" aria-label="plus one">+</button>
       </div>
-      <div class="field">
-        <label>Count <span style="color:var(--faint)">auto</span></label>
-        <div class="count-inline">
-          <span class="cnum" id="cbBalls">0</span>
-          <span class="cdash">–</span>
-          <span class="cnum" id="cbStrikes">0</span>
-          <button type="button" class="btn-sm" id="countEdit" aria-expanded="false">fix</button>
+    </div>
+
+    <div class="field">
+      <label>Count <span style="color:var(--faint)">auto</span></label>
+      <div class="count-inline">
+        <span class="cnum" id="cbBalls">0</span>
+        <span class="cdash">–</span>
+        <span class="cnum" id="cbStrikes">0</span>
+        <button type="button" class="btn-sm" id="countEdit" aria-expanded="false">fix</button>
+      </div>
+      <div class="count-fix" id="countFix" style="display:none">
+        <div class="chips compact" id="balls">
+          {% for n in range(4) %}<div class="chip {{ 'on' if n == 0 }}" data-value="{{ n }}">{{ n }}</div>{% endfor %}
         </div>
-        <div class="count-fix" id="countFix" style="display:none">
-          <div class="chips compact" id="balls">
-            {% for n in range(4) %}<div class="chip {{ 'on' if n == 0 }}" data-value="{{ n }}">{{ n }}</div>{% endfor %}
-          </div>
-          <div class="chips compact" id="strikes">
-            {% for n in range(3) %}<div class="chip {{ 'on' if n == 0 }}" data-value="{{ n }}">{{ n }}</div>{% endfor %}
-          </div>
+        <div class="chips compact" id="strikes">
+          {% for n in range(3) %}<div class="chip {{ 'on' if n == 0 }}" data-value="{{ n }}">{{ n }}</div>{% endfor %}
         </div>
       </div>
     </div>

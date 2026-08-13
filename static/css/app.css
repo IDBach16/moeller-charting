@@ -155,6 +155,15 @@ button:disabled:hover{background:transparent;color:var(--gold);box-shadow:none}
   color:var(--gold);margin:.2rem 0 .45rem;font-weight:700}
 .count-dash{font-size:1.8rem;color:var(--faint);font-weight:300;padding-bottom:1.4rem}
 
+/* ---------- one-tap velo strip ---------- */
+.velo-strip{display:flex;flex-wrap:wrap;gap:.32rem}
+.velo-strip .vchip{
+  padding:.5rem .55rem;font-size:.95rem;font-weight:800;
+  font-variant-numeric:tabular-nums;min-width:44px;justify-content:center;
+}
+.velo-strip .vaux{color:var(--faint);font-weight:600;min-width:38px}
+.velo-strip .vaux:hover{color:var(--gold)}
+
 /* ---------- velocity stepper ---------- */
 .velo-stepper{display:flex;align-items:stretch;gap:.5rem}
 .velo-stepper button{
