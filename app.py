@@ -30,7 +30,8 @@ APP_DIR = os.path.dirname(os.path.abspath(__file__))
 app.secret_key = os.environ.get("SECRET_KEY", "moeller-charting-2027-secret")
 app.permanent_session_lifetime = timedelta(days=30)
 
-HUB_PASSWORD = os.environ.get("HUB_PASSWORD", "Held_2027")
+# Empty = no gate. To require a password again, set HUB_PASSWORD on Railway.
+HUB_PASSWORD = os.environ.get("HUB_PASSWORD", "")
 
 PUBLIC_PATHS = {"/login", "/healthz", "/moeller-logo.png", "/shield.png",
                 "/bg-field.jpg", "/favicon.ico", "/manifest.json"}
@@ -38,6 +39,8 @@ PUBLIC_PATHS = {"/login", "/healthz", "/moeller-logo.png", "/shield.png",
 
 @app.before_request
 def require_login():
+    if not HUB_PASSWORD:
+        return None
     if request.path in PUBLIC_PATHS or request.path.startswith("/static/"):
         return None
     if not session.get("authed"):
@@ -53,6 +56,8 @@ def require_login():
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    if not HUB_PASSWORD:
+        return redirect(url_for("index"))
     error = None
     if request.method == "POST":
         if request.form.get("password") == HUB_PASSWORD:

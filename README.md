@@ -14,8 +14,8 @@ python app.py                     # http://127.0.0.1:5060
 ```
 
 With no `DATABASE_URL` set it writes a local `charting.db` (SQLite), so you can try it
-without installing Postgres. Password is `HUB_PASSWORD`, default `Held_2027` — the same
-one the hub uses.
+without installing Postgres. The password gate is **off by default** — set `HUB_PASSWORD`
+(locally or on Railway) to require one; empty or unset means no login.
 
 ```
 python smoke_test.py              # 43 checks against a throwaway database
